@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Narrows · find the step that limits your process</title>
+<meta name="description" content="Narrows animates a process-flow analysis: capacity, bottleneck, utilization, Little's Law, and what a fix really changes. Edit the brief to model your own process.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,100..900&family=Instrument+Sans:wght@400..700&family=Spline+Sans+Mono:wght@400..700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E4EAEE; --sheet:#F6F9FA; --ink:#131C26; --slate:#566573; --rule:#B7C3CC;
+  --navy:#123A7C; --teal:#0E8F80; --coral:#FF4A36;
+  --display:"Anybody","Arial Narrow",sans-serif;
+  --body:"Instrument Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"Spline Sans Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; color:var(--ink); font-family:var(--body); font-size:16px; line-height:1.5;
+  background-color:var(--paper);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .07 0 0 0 0 .11 0 0 0 0 .15 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.wrap{max-width:1320px; margin:0 auto; padding:18px clamp(14px,3vw,40px) 56px}
+button,input,select{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--navy); outline-offset:2px}
+
+/* hero */
+.topline{display:flex; justify-content:space-between; gap:16px; font:500 11px/1.4 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--slate)}
+.mark{margin:6px 0 0; font-family:var(--display); font-weight:900; line-height:.8; letter-spacing:.012em; white-space:nowrap; color:var(--navy); font-size:15vw; text-transform:uppercase}
+.mark span{display:inline-block}
+.mark .pinch{margin:0 .025em}
+.mark .pinch{color:var(--coral); position:relative}
+.mark .pinch::after{
+  content:"the slowest step sets the pace"; position:absolute; left:50%; top:100%;
+  font:500 11px/1 var(--mono); letter-spacing:.04em; text-transform:none; white-space:nowrap;
+  color:var(--coral); border-left:1.5px solid var(--coral); padding:16px 0 0 7px;
+}
+.lede{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px 40px; align-items:end; margin:40px 0 22px; padding-top:14px; border-top:1.5px solid var(--ink)}
+.lede h1{margin:0; font:600 clamp(1.15rem,2vw,1.6rem)/1.2 var(--body); letter-spacing:-.01em; max-width:24ch}
+.lede p{margin:0; color:var(--slate); max-width:56ch; font-size:.98rem}
+
+/* bench */
+.bench{display:grid; grid-template-columns:minmax(0,1fr) 348px; gap:26px; align-items:start}
+.sheet{
+  background-color:var(--sheet); border:1.5px solid var(--ink);
+  background-image:linear-gradient(rgba(18,58,124,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(18,58,124,.055) 1px,transparent 1px);
+  background-size:22px 22px; background-position:-1px -1px;
+}
+.block{display:grid; grid-template-columns:auto minmax(0,1fr) auto; border-bottom:1.5px solid var(--ink); background:var(--sheet)}
+.block > div{padding:9px 14px; border-right:1px solid var(--rule); min-width:0}
+.block > div:last-child{border-right:0}
+.block small{display:block; font:500 10px/1.3 var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--slate)}
+.beatno{font:800 1.5rem/1 var(--display); font-stretch:70%; color:var(--navy)}
+.beatno i{font-style:normal; color:var(--rule)}
+.beattitle{font:800 clamp(1.15rem,2.2vw,1.6rem)/1.1 var(--display); font-stretch:82%; letter-spacing:.005em}
+.what{font-size:.86rem; line-height:1.3; text-align:right}
+.what b{display:block; font-weight:600}
+.scroller{overflow-x:auto}
+#stage{display:block; width:100%; height:auto}
+
+/* diagram */
+#stage text{font-family:var(--body); fill:var(--ink)}
+#stage .mono{font-family:var(--mono)}
+#stage .dim{fill:var(--slate)}
+#stage .nm{font-weight:600}
+#stage .num{font-family:var(--mono); font-weight:600}
+#stage .num.bn{fill:var(--coral)}
+#stage .navy{fill:var(--navy)}
+#stage .coral{fill:var(--coral)}
+#stage .eyebrow{font-family:var(--mono); font-weight:600; letter-spacing:.1em}
+[data-k]{opacity:0; transition:opacity .55s ease}
+[data-k].on{opacity:1}
+.draw{stroke-dasharray:1 1; stroke-dashoffset:1; transition:stroke-dashoffset 1.1s cubic-bezier(.6,0,.2,1), opacity .3s, stroke .5s, stroke-width .5s}
+.draw.on{stroke-dashoffset:0}
+.bf{fill:transparent; transition:fill .6s ease}
+.bf.cap{fill:rgba(14,143,128,.17)}
+.bf.bn{fill:rgba(255,74,54,.2)}
+.bo{fill:none; stroke:var(--ink); stroke-width:1.6}
+.bo.bn{stroke:var(--coral); stroke-width:3}
+.stream{fill:var(--navy)}
+.march{stroke:#fff; stroke-opacity:.5; stroke-width:1.5; stroke-dasharray:3 13; animation:march 1.1s linear infinite}
+@keyframes march{to{stroke-dashoffset:-16}}
+.dline{stroke:var(--navy); stroke-width:1.5; stroke-dasharray:7 5; fill:none}
+.band{fill:rgba(18,58,124,.06)}
+.pop{transform-box:fill-box; transform-origin:center; transform:scale(.2); transition:opacity .3s, transform .45s cubic-bezier(.3,1.6,.5,1)}
+.on > .pop, .pop.on{transform:none}
+.tok{fill:var(--sheet); stroke:var(--ink); stroke-width:1.2}
+.qtok{fill:var(--navy)}
+.ghost{fill:none; stroke:var(--slate); stroke-width:1.5; stroke-dasharray:5 4}
+.tagbg{fill:var(--coral)}
+.tagbg.lim{fill:var(--navy)}
+.tagtx{fill:#fff !important; font-family:var(--mono) !important; font-weight:600; letter-spacing:.08em}
+.unit.on{animation:travel 5.2s cubic-bezier(.5,0,.3,1) infinite}
+@keyframes travel{0%{transform:translateX(0);opacity:0}8%{opacity:1}82%{opacity:1}100%{transform:translateX(var(--tr));opacity:0}}
+
+/* caption + maths */
+.read{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); border-top:1.5px solid var(--ink); background:var(--sheet)}
+.caption{padding:16px 18px 18px; font-size:clamp(1rem,1.35vw,1.14rem); line-height:1.45; min-height:9.2em}
+.caption p{margin:0 0 .5em}
+.caption b{font-weight:600; color:var(--navy)}
+.caption .bn, td.bn{color:var(--coral); font-weight:600}
+.maths{padding:16px 18px 18px; border-left:1px solid var(--rule); font-size:.9rem}
+.maths .rule{margin:0 0 4px; font:700 1.05rem/1.25 var(--body); letter-spacing:-.005em; color:var(--navy)}
+.maths .rule + .rule, .maths .work + .rule{margin-top:12px}
+.maths .sub{margin:0 0 6px; color:var(--slate); font-size:.84rem}
+.maths .work{margin:0; font:400 .84rem/1.65 var(--mono); color:var(--ink)}
+.maths .work b{font-weight:600}
+.maths .work .bn{color:var(--coral); font-weight:600}
+.maths table{width:100%; border-collapse:collapse; font-size:.88rem}
+.maths th{font:500 10px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--slate); text-align:left; padding:0 6px 7px 0}
+.maths td{padding:6px 6px 6px 0; border-top:1px solid var(--rule); vertical-align:top}
+.maths td:first-child{color:var(--slate)}
+.maths td + td{font-family:var(--mono); font-weight:600}
+.maths td.to{color:var(--navy)}
+.swap{animation:swap .5s ease both}
+@keyframes swap{from{opacity:0; transform:translateY(5px)}}
+
+/* transport */
+.transport{display:flex; gap:10px; align-items:stretch; margin-top:12px}
+.btn{border:1.5px solid var(--ink); background:var(--sheet); border-radius:2px; padding:9px 13px; font-weight:600; font-size:.9rem; cursor:pointer; min-height:44px}
+.btn:hover{background:#fff}
+.btn.primary{background:var(--navy); color:#fff; border-color:var(--navy); min-width:92px}
+.btn.primary:hover{background:#0c2c61}
+.btn:disabled{opacity:.4; cursor:default}
+.rail{flex:1; display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:4px; min-width:0}
+.rail button{position:relative; border:0; border-top:4px solid var(--rule); background:none; padding:7px 2px 0; text-align:left; cursor:pointer; font:500 11px/1.25 var(--mono); color:var(--slate); overflow:hidden; min-height:44px}
+.rail button i{position:absolute; left:0; top:-4px; height:4px; width:100%; background:var(--navy); transform:scaleX(0); transform-origin:left}
+.rail button.done i{transform:scaleX(1)}
+.rail button[aria-current="true"]{color:var(--ink); font-weight:600}
+.rail button span{display:block; font-family:var(--body); font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.keys{margin:8px 0 0; font:400 11px/1.4 var(--mono); color:var(--slate)}
+
+/* brief */
+.brief{border:1.5px solid var(--ink); background:var(--sheet); padding:16px 16px 18px}
+.brief h2{margin:0; font:800 1.35rem/1.1 var(--display); font-stretch:82%}
+.brief h3{margin:20px 0 2px; padding-top:12px; border-top:1px solid var(--rule); font:600 .92rem/1.3 var(--body)}
+.brief .hint{margin:4px 0 10px; font-size:.84rem; color:var(--slate); line-height:1.4}
+.brief label, .shead span{display:block; font:500 10px/1.3 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--slate); margin:10px 0 2px}
+.brief input, .brief select{width:100%; border:0; border-bottom:1.5px solid var(--rule); background:transparent; padding:5px 2px; border-radius:0; font-size:.95rem; min-height:34px}
+.brief input:hover, .brief select:hover{border-bottom-color:var(--slate)}
+.brief input:focus, .brief select:focus{outline:0; border-bottom-color:var(--navy); background:#fff}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:0 12px}
+.three{display:grid; grid-template-columns:1.7fr .8fr; gap:0 12px}
+.shead, .srow{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1.2fr) 44px 48px 26px; gap:0 8px; align-items:end}
+.shead span{margin-bottom:0}
+.srow input{font-size:.88rem}
+.srow .rm{border:0; background:none; color:var(--slate); cursor:pointer; font-size:1.1rem; height:34px; padding:0}
+.srow .rm:hover{color:var(--ink)}
+.acts{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+.acts .btn{font-size:.82rem; padding:6px 10px; min-height:36px}
+.status{margin:12px 0 0; font-size:.86rem; min-height:1.3em}
+.status.err{color:var(--ink); border-left:3px solid var(--ink); padding-left:8px; font-weight:600}
+.assume{margin:16px 0 0; font-size:.8rem; color:var(--slate); line-height:1.45}
+footer{margin-top:34px; padding-top:12px; border-top:1px solid var(--rule); font:400 11px/1.5 var(--mono); color:var(--slate); display:flex; flex-wrap:wrap; gap:6px 24px; justify-content:space-between}
+
+@media (max-width:1040px){ .bench{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:700px){
+  .topline span + span{display:none}
+  .mark .pinch::after{font-size:9.5px; padding-top:10px}
+  .lede{grid-template-columns:1fr; margin-top:30px}
+  .block{grid-template-columns:auto minmax(0,1fr)}
+  .block .what{grid-column:1 / -1; border-top:1px solid var(--rule); text-align:left}
+  .block .what b{display:inline}
+  .read{grid-template-columns:1fr}
+  .caption{min-height:0}
+  .maths{border-left:0; border-top:1px solid var(--rule)}
+  .transport{flex-wrap:wrap}
+  .rail{order:-1; flex-basis:100%}
+  .rail button span{display:none}
+  .transport .btn{flex:1}
+  .keys{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none !important; transition-duration:.01s !important; transition-delay:0s !important}
+  .unit.on{transform:translateX(calc(var(--tr) / 2)); opacity:1}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="topline"><span>Process-flow explainer</span><span>One file · runs in your browser · your numbers stay on your device</span></div>
+    <p class="mark" id="mark" aria-label="Narrows"><span style="font-stretch:150%">N</span><span style="font-stretch:112%">a</span><span style="font-stretch:76%">r</span><span class="pinch" style="font-stretch:50%">r</span><span style="font-stretch:76%">o</span><span style="font-stretch:112%">w</span><span style="font-stretch:150%">s</span></p>
+    <div class="lede">
+      <h1>Find the one step that limits your whole process.</h1>
+      <p>Describe a process in a few numbers. Narrows draws it as a channel, shows where work piles up, and tests what a fix really changes. The kitchen below is a worked example. Replace it with your own process.</p>
+    </div>
+  </header>
+
+  <main class="bench">
+    <section aria-label="Animated process analysis">
+      <div class="sheet">
+        <div class="block">
+          <div><small>Beat</small><span class="beatno" id="beatno">01<i>/08</i></span></div>
+          <div><small>Now showing</small><span class="beattitle" id="beattitle"></span></div>
+          <div class="what"><small>Process</small><b id="pname"></b><span id="pplace"></span></div>
+        </div>
+        <div class="scroller"><svg id="stage" role="img" aria-label="Process diagram"></svg></div>
+        <div class="read" aria-live="polite">
+          <div class="caption" id="caption"></div>
+          <div class="maths" id="maths"></div>
+        </div>
+      </div>
+      <div class="transport">
+        <button class="btn" id="prev" type="button" aria-label="Previous beat">← Back</button>
+        <button class="btn primary" id="play" type="button">Pause</button>
+        <button class="btn" id="next" type="button" aria-label="Next beat">Next →</button>
+        <div class="rail" id="rail"></div>
+      </div>
+      <p class="keys">Keys: ← → to step, space to play or pause, 1–8 to jump.</p>
+    </section>
+
+    <aside class="brief" aria-labelledby="briefh">
+      <h2 id="briefh">Your process</h2>
+      <p class="hint">Change any value. The drawing and the maths recompute at once.</p>
+      <label for="f-name">Process</label><input id="f-name" autocomplete="off">
+      <label for="f-place">Workplace</label><input id="f-place" autocomplete="off">
+      <div class="two">
+        <div><label for="f-unit">You count one…</label><input id="f-unit" autocomplete="off"></div>
+        <div><label for="f-units">…and many</label><input id="f-units" autocomplete="off"></div>
+      </div>
+      <label for="f-start">It starts when</label><input id="f-start" autocomplete="off">
+      <label for="f-end">It ends when</label><input id="f-end" autocomplete="off">
+      <label for="f-demand">Demand at the busy time (per hour)</label><input id="f-demand" type="number" min="0" step="any" inputmode="decimal">
+
+      <h3>Steps, in order</h3>
+      <div class="shead"><span>Step</span><span>Resource</span><span>How many</span><span>Min each</span><span></span></div>
+      <div id="steps"></div>
+      <div class="acts"><button class="btn" id="addstep" type="button">Add a step</button></div>
+
+      <h3>The fix to test</h3>
+      <label for="f-fixlabel">What you would do</label><input id="f-fixlabel" autocomplete="off">
+      <div class="three">
+        <div><label for="f-fixstep">At step</label><select id="f-fixstep"></select></div>
+        <div><label for="f-fixn">New count</label><input id="f-fixn" type="number" min="0" step="any" inputmode="decimal"></div>
+      </div>
+
+      <h3>The tempting alternative</h3>
+      <p class="hint">Optional. A change that looks helpful but may miss the bottleneck.</p>
+      <label for="f-altlabel">What someone suggests</label><input id="f-altlabel" autocomplete="off">
+      <div class="three">
+        <div><label for="f-altstep">At step</label><select id="f-altstep"></select></div>
+        <div><label for="f-altn">New count</label><input id="f-altn" type="number" min="0" step="any" inputmode="decimal"></div>
+      </div>
+
+      <h3>Money</h3>
+      <p class="hint">Optional. Leave blank to skip the payback line.</p>
+      <div class="two">
+        <div><label for="f-cur">Currency sign</label><input id="f-cur" autocomplete="off"></div>
+        <div><label for="f-margin">Margin per unit</label><input id="f-margin" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div><label for="f-hours">Busy hours a day</label><input id="f-hours" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div><label for="f-cost">Cost of the fix</label><input id="f-cost" type="number" min="0" step="any" inputmode="decimal"></div>
+      </div>
+
+      <p class="status" id="status" role="status"></p>
+      <div class="acts">
+        <button class="btn" id="loaddemo" type="button">Load kitchen example</button>
+        <button class="btn" id="blank" type="button">Start blank</button>
+      </div>
+      <p class="assume">The model assumes: steps run one after the other, each resource handles one unit at a time, step times are fixed, work arrives evenly, and there are no breaks or rework.</p>
+    </aside>
+  </main>
+
+  <footer><span>Narrows · a process-flow explainer</span><span>The kitchen and all its figures are fictional.</span></footer>
+</div>
+
+<script>
+const KITCHEN = {
+  name: "Evening rush, order to rider", place: "Kavya's momo kitchen (delivery only)",
+  unit: "order", units: "orders",
+  start: "An order is accepted on the app", end: "The box is handed to the rider",
+  demand: 24,
+  steps: [
+    { name: "Fill and fold", res: "cook", n: 2, t: 4 },
+    { name: "Steam", res: "steamer tier", n: 3, t: 9 },
+    { name: "Pack and hand over", res: "packer", n: 1, t: 2 }
+  ],
+  fix: { label: "Add a second 3-tier steamer", step: 2, n: 6 },
+  alt: { label: "Hire a third cook", step: 1, n: 3 },
+  money: { cur: "₹", margin: 80, hours: 3, cost: 30000 }
+};
+const BLANK = {
+  name: "", place: "", unit: "unit", units: "units", start: "", end: "", demand: "",
+  steps: [{ name: "", res: "", n: "", t: "" }, { name: "", res: "", n: "", t: "" }],
+  fix: { label: "", step: 1, n: "" }, alt: { label: "", step: 0, n: "" },
+  money: { cur: "", margin: "", hours: "", cost: "" }
+};
+const BEATS = [
+  { k: "Flow unit", d: 6500 }, { k: "Process map", d: 7500 }, { k: "Capacity", d: 8500 },
+  { k: "Bottleneck vs demand", d: 9500 }, { k: "Utilization", d: 8500 }, { k: "Little's Law", d: 9000 },
+  { k: "The fix", d: 12000 }, { k: "Whole-process effect", d: 11000 }
+];
+const STORE = "narrows.brief.v1";
+const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = x => Number.isFinite(x) ? String(Math.round(x * 10) / 10) : "–";
+const pct = x => Math.round(x * 100) + "%";
+const cash = (cur, x) => cur + Math.round(x).toLocaleString();
+function plural(w, n) {
+  if (n === 1 || !w) return w;
+  if (/(s|x|ch|sh)$/i.test(w)) return w + "es";
+  if (/[^aeiou]y$/i.test(w)) return w.slice(0, -1) + "ies";
+  return w + "s";
+}
+const lower1 = s => s ? s[0].toLowerCase() + s.slice(1) : s;
+
+let model = null, beat = 1, phase = 2, playing = false, elapsed = 0, lastTick = 0, phaseTimer = 0, E = null, narrow = null;
+
+/* ---------- maths ---------- */
+function compute(b) {
+  if (!b.steps.length) throw "Add at least one step.";
+  if (!(b.demand > 0)) throw "Enter demand per hour. It must be more than 0.";
+  b.steps.forEach((s, i) => { if (!(s.n > 0) || !(s.t > 0)) throw `Step ${i + 1} needs a count and minutes above 0.`; });
+  if (!(b.fix.n > 0)) throw "Enter the new count for the fix.";
+  const cap = s => s.n / s.t * 60;
+  const line = steps => {
+    const caps = steps.map(cap), c = Math.min(...caps), bn = caps.indexOf(c), R = Math.min(b.demand, c);
+    return { steps: steps.map((s, i) => ({ ...s, cap: caps[i] })), cap: c, bn, R, bind: c < b.demand - 1e-9, lost: Math.max(0, b.demand - c) };
+  };
+  const swap = (step, n) => b.steps.map((s, i) => i === step - 1 ? { ...s, n } : s);
+  const before = line(b.steps), after = line(swap(b.fix.step, b.fix.n));
+  const hasAlt = b.alt.step > 0 && b.alt.n > 0;
+  const alt = hasAlt ? line(swap(b.alt.step, b.alt.n)) : null;
+  const T = b.steps.reduce((a, s) => a + s.t, 0);
+  const m = { ...b, before, after, altLine: alt, T, I0: before.R * T / 60, I1: after.R * T / 60 };
+  m.max = Math.max(b.demand, ...before.steps.map(s => s.cap), ...after.steps.map(s => s.cap), ...(alt ? alt.steps.map(s => s.cap) : []));
+  const mo = b.money;
+  if (mo.margin > 0 && mo.hours > 0) {
+    m.lostDay = before.lost * mo.hours * mo.margin;
+    m.gainDay = (after.R - before.R) * mo.hours * mo.margin;
+    if (mo.cost > 0 && m.gainDay > 0) m.payback = Math.ceil(mo.cost / m.gainDay - 1e-9);
+  }
+  return m;
+}
+
+/* ---------- words ---------- */
+function caption(b) {
+  const m = model, B = m.before, A = m.after, u = esc(m.units), nm = i => esc(m.steps[i].name), bnN = nm(B.bn), mo = m.money;
+  const list = arr => arr.join(", ");
+  switch (b) {
+    case 1: return `<p>Pick one thing to follow. Here it is one <b>${esc(m.unit)}</b>.</p><p>The clock starts when ${esc(lower1(m.start) || "work arrives")}. It stops when ${esc(lower1(m.end) || "work leaves")}.</p>`;
+    case 2: return `<p>Each ${esc(m.unit)} passes through <b>${m.steps.length} ${plural("step", m.steps.length)}</b>, one after the other.</p><p>With no waiting, that takes ${m.steps.map(s => fmt(s.t)).join(" + ")} = <b>${fmt(m.T)} min</b>.</p>`;
+    case 3: return `<p>Capacity is the most a step can finish in one hour. Box height now shows it.</p><p>${list(B.steps.map(s => `${esc(s.name)} <b>${fmt(s.cap)}/h</b>`))}.</p>`;
+    case 4: return B.bind
+      ? `<p>At the busy time, demand is <b>${fmt(m.demand)} ${u}/h</b>. <span class="bn">${bnN}</span> can finish only <span class="bn">${fmt(B.cap)}/h</span>. It is the bottleneck.</p><p>${fmt(B.lost)} ${u} pile up in front of it every hour.${m.lostDay ? ` Over ${fmt(mo.hours)} busy hours that is ${fmt(B.lost * mo.hours)} ${u}, or <b>${cash(mo.cur, m.lostDay)}</b> of margin a day.` : ""}</p>`
+      : `<p>Demand is <b>${fmt(m.demand)} ${u}/h</b>. Every step can finish at least that much.</p><p>Demand is the limit, so nothing piles up. The slowest step is ${bnN} at ${fmt(B.cap)}/h.</p>`;
+    case 5: {
+      const others = B.steps.map((s, i) => i === B.bn ? null : `${esc(s.name)} ${pct(B.R / s.cap)}`).filter(Boolean);
+      return B.bind
+        ? `<p>The whole process moves at the pace of the bottleneck: <b>${fmt(B.R)} ${u}/h</b>.</p><p><span class="bn">${bnN} is busy 100%</span> of the time. The other steps wait for it${others.length ? ": " + list(others) : ""}.</p>`
+        : `<p>The process moves at the pace of demand: <b>${fmt(B.R)} ${u}/h</b>.</p><p>No step is fully busy: ${list(B.steps.map(s => `${esc(s.name)} ${pct(B.R / s.cap)}`))}.</p>`;
+    }
+    case 6: return `<p>Little's Law links three numbers. At ${fmt(B.R)} ${u}/h and ${fmt(m.T)} min each, about <b>${fmt(m.I0)} ${u}</b> are in process at any moment.</p><p>If you count more than that on the floor, the extra ${u} are waiting.</p>`;
+    case 7: {
+      const f = m.fix.step - 1; let a = "";
+      if (m.altLine) {
+        const i = m.alt.step - 1, AL = m.altLine;
+        a = `<p>The tempting change: <b>${esc(m.alt.label || "add capacity at " + m.steps[i].name)}</b>. ${nm(i)} rises to ${fmt(AL.steps[i].cap)}/h, but output ${AL.R > B.R + 1e-9 ? `only reaches ${fmt(AL.R)}/h` : `stays at ${fmt(B.R)}/h`}${AL.R > B.R + 1e-9 || !B.bind ? "" : `. <span class="bn">${bnN}</span> still sets the pace`}.</p>`;
+      }
+      return a + `<p>The fix: <b>${esc(m.fix.label || "add capacity at " + m.steps[f].name)}</b>. ${nm(f)} rises from ${fmt(B.steps[f].cap)}/h to <b>${fmt(A.steps[f].cap)}/h</b>.</p>`;
+    }
+    case 8: {
+      let s;
+      if (!B.bind) s = `<p>Demand was the limit before the fix, and it still is. Output stays at <b>${fmt(A.R)} ${u}/h</b>.</p><p>More capacity adds nothing here. Only more demand does.</p>`;
+      else if (!A.bind) s = `<p>The limit has moved from <span class="bn">${bnN} (${fmt(B.cap)}/h)</span> to <b>demand (${fmt(m.demand)}/h)</b>.</p><p>Output rises from ${fmt(B.R)} to <b>${fmt(A.R)} ${u}/h</b>, and no ${esc(m.unit)} is turned away. From here, more capacity adds nothing.</p>`;
+      else if (A.bn !== B.bn) s = `<p>The bottleneck has moved from ${bnN} (${fmt(B.cap)}/h) to <span class="bn">${nm(A.bn)} (${fmt(A.cap)}/h)</span>.</p><p>Output rises from ${fmt(B.R)} to <b>${fmt(A.R)} ${u}/h</b>. The next gain must come from ${nm(A.bn)}.</p>`;
+      else s = `<p><span class="bn">${bnN}</span> is still the bottleneck, now at ${fmt(A.cap)}/h.</p><p>Output ${A.R > B.R + 1e-9 ? `rises from ${fmt(B.R)} to <b>${fmt(A.R)} ${u}/h</b>` : `stays at <b>${fmt(A.R)} ${u}/h</b>`}. Demand of ${fmt(m.demand)}/h is still not met.</p>`;
+      if (m.payback) s += `<p>Payback: ${cash(mo.cur, mo.cost)} ÷ ${cash(mo.cur, m.gainDay)} a day ≈ <b>${m.payback} days</b>.</p>`;
+      return s;
+    }
+  }
+}
+function maths(b) {
+  const m = model, B = m.before, A = m.after, u = esc(m.units), mo = m.money;
+  const capLine = (s, hot) => `${esc(s.name)}: ${fmt(s.n)} ÷ ${fmt(s.t)} min × 60 = <b${hot ? ' class="bn"' : ""}>${fmt(s.cap)} ${u}/h</b>`;
+  const mins = L => `min(${L.steps.map(s => fmt(s.cap)).join(", ")})`;
+  const rule = (t, sub) => `<p class="rule">${t}</p>${sub ? `<p class="sub">${sub}</p>` : ""}`;
+  const work = lines => `<p class="work">${lines.join("<br>")}</p>`;
+  switch (b) {
+    case 1: return rule("Flow unit = the one thing you count", "Every rate on this sheet is in " + u + " per hour.") + work([`1 flow unit = 1 ${esc(m.unit)}`]);
+    case 2: return rule("Flow time = sum of the step times", "The fastest possible trip, with no waiting.") + work([`${m.steps.map(s => fmt(s.t)).join(" + ")} = <b>${fmt(m.T)} min</b>`]);
+    case 3: return rule("Capacity = resources ÷ time per unit", "Multiply by 60 to get units per hour.") + work(B.steps.map(s => capLine(s)));
+    case 4: return rule("Process capacity = the smallest step capacity") + work([`${mins(B)} = <b${B.bind ? ' class="bn"' : ""}>${fmt(B.cap)} ${u}/h</b>`, B.bind ? `demand ${fmt(m.demand)} − capacity ${fmt(B.cap)} = <b>${fmt(B.lost)} ${u}/h</b> not served` : `demand ${fmt(m.demand)}/h is within capacity`]);
+    case 5: return rule("Flow rate = the smaller of demand and capacity") + work([`R = min(${fmt(m.demand)}, ${fmt(B.cap)}) = <b>${fmt(B.R)} ${u}/h</b>`]) + rule("Utilization = flow rate ÷ capacity") + work(B.steps.map((s, i) => `${esc(s.name)}: ${fmt(B.R)} ÷ ${fmt(s.cap)} = <b${B.bind && i === B.bn ? ' class="bn"' : ""}>${pct(B.R / s.cap)}</b>`));
+    case 6: return rule("I = R × T", `${u[0].toUpperCase() + u.slice(1)} in process = flow rate × flow time`) + work([`R = ${fmt(B.R)} ${u}/h`, `T = ${fmt(m.T)} min = ${fmt(m.T / 60 * 100) / 100} h`, `I = ${fmt(B.R)} × ${fmt(m.T / 60 * 100) / 100} = <b>${fmt(m.I0)} ${u}</b>`]);
+    case 7: {
+      let h = "";
+      if (m.altLine) { const i = m.alt.step - 1, AL = m.altLine; h += rule("Tempting: " + esc(m.alt.label || m.steps[i].name)) + work([capLine(AL.steps[i]), `${mins(AL)} = <b>${fmt(AL.cap)}/h</b>, output ${fmt(AL.R)}/h${AL.R > B.R + 1e-9 ? "" : " (no gain)"}`]); }
+      const f = m.fix.step - 1;
+      return h + rule("Fix: " + esc(m.fix.label || m.steps[f].name)) + work([capLine(A.steps[f]), `${mins(A)} = <b>${fmt(A.cap)}/h</b>`, `R = min(${fmt(m.demand)}, ${fmt(A.cap)}) = <b>${fmt(A.R)} ${u}/h</b>`]);
+    }
+    case 8: {
+      const lim = L => L.bind ? esc(L.steps[L.bn].name) : "Demand";
+      const rows = [
+        ["Limit", lim(B), lim(A), B.bind, A.bind],
+        ["Process capacity", fmt(B.cap) + "/h", fmt(A.cap) + "/h"],
+        ["Output", fmt(B.R) + "/h", fmt(A.R) + "/h"],
+        ["Not served", fmt(B.lost) + "/h", fmt(A.lost) + "/h"],
+        ["In process (I = R × T)", fmt(m.I0), fmt(m.I1)]
+      ];
+      if (m.lostDay != null) rows.push(["Margin lost a day", cash(mo.cur, m.lostDay), cash(mo.cur, A.lost * mo.hours * mo.margin)]);
+      return `<table><thead><tr><th></th><th>Before</th><th>After</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td${r[3] ? ' class="bn"' : ""}>${r[1]}</td><td class="${r[4] ? "bn" : "to"}">${r[2]}</td></tr>`).join("")}</tbody></table>`;
+    }
+  }
+}
+
+/* ---------- drawing ---------- */
+const CY = 235, HM = 100, CYB = 140, CYA = 326, HK = 46, UNI = .42, H = 462;
+function wrap(s, max) {
+  const out = [""];
+  for (const w of String(s).split(/\s+/)) {
+    const cur = out[out.length - 1];
+    if (!cur) out[out.length - 1] = w; else if ((cur + " " + w).length <= max) out[out.length - 1] = cur + " " + w; else out.push(w);
+  }
+  if (out.length > 2) { out[1] = out.slice(1).join(" "); out.length = 2; }
+  return out.map(l => l.length > max + 2 ? l.slice(0, max + 1) + "…" : l);
+}
+function build() {
+  const m = model, n = m.steps.length, B = m.before, svg = $("stage");
+  narrow = svg.parentNode.clientWidth < 640;
+  const mx = narrow ? 16 : 42, W = narrow ? Math.max(372, mx * 2 + n * 108) : Math.max(900, mx * 2 + n * 150), col = (W - 2 * mx) / n;
+  const fs = narrow ? { nm: 12.5, sub: 10.5, num: 15, tag: 9, note: 10 } : { nm: 15.5, sub: 12, num: 19, tag: 10.5, note: 12 };
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.style.minWidth = narrow && n > 3 ? W + "px" : "";
+  svg.style.setProperty("--tr", (W - 2 * mx) + "px");
+  const x0 = i => mx + i * col, xc = i => x0(i) + col / 2;
+  const tx = (x, y, s, cls, size, anchor, extra = "") => `<text x="${x}" y="${y}" class="${cls}" font-size="${size}" text-anchor="${anchor || "start"}" ${extra}>${s}</text>`;
+  const tag = (cx, y, s, key, cls = "") => { const w = s.length * fs.tag * .68 + 14, x = Math.min(Math.max(cx - w / 2, 4), W - w - 4); return `<g data-k="${key}"><rect class="tagbg ${cls}" x="${x}" y="${y}" width="${w}" height="${fs.tag + 9}"/>${tx(x + w / 2, y + fs.tag + 3.5, s, "tagtx", fs.tag, "middle")}</g>`; };
+  const dh = HM * m.demand / m.max, dhk = HK * m.demand / m.max;
+  let s = `<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2.4" height="6" fill="#FF4A36"/></pattern>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#131C26"/></marker></defs>`;
+  s += `<rect id="band" class="band" data-k="demand" x="0" width="${W}" y="${CY - dh}" height="${2 * dh}"/>`;
+  s += `<line class="draw" data-k="line" pathLength="1" x1="6" x2="${W - 8}" y1="${CY}" y2="${CY}" stroke="#131C26" stroke-width="1.5" marker-end="url(#arr)"/>`;
+
+  /* before row, shown in the last beat */
+  s += `<g data-k="cmp"><rect class="band" x="0" width="${W}" y="${CYB - dhk}" height="${2 * dhk}"/>`;
+  B.steps.forEach((st, i) => { const h = 2 * HK * st.cap / m.max, hot = B.bind && i === B.bn; s += `<rect class="bf ${hot ? "bn" : "cap"}" x="${x0(i)}" y="${CYB - h / 2}" width="${col}" height="${h}"/>`; });
+  if (B.bind) { const h = HK * B.cap / m.max; [[CYB - dhk, dhk - h], [CYB + h, dhk - h]].forEach(([y, hh]) => s += `<rect x="${x0(B.bn)}" y="${y}" width="${col}" height="${hh}" fill="url(#hatch)" opacity=".75"/>`); }
+  const rk = HK * B.R / m.max;
+  s += `<rect class="stream" x="0" width="${W}" y="${CYB - rk}" height="${2 * rk}"/><line class="march" x1="0" x2="${W}" y1="${CYB}" y2="${CYB}"/>`;
+  B.steps.forEach((st, i) => { const h = 2 * HK * st.cap / m.max, hot = B.bind && i === B.bn; s += `<rect class="bo ${hot ? "bn" : ""}" x="${x0(i)}" y="${CYB - h / 2}" width="${col}" height="${h}"/>`; });
+  s += `<line class="dline" x1="4" x2="${W - 4}" y1="${CYB - dhk}" y2="${CYB - dhk}"/><line class="dline" x1="4" x2="${W - 4}" y1="${CYB + dhk}" y2="${CYB + dhk}"/></g>`;
+
+  /* live channel */
+  m.steps.forEach((st, i) => s += `<rect class="bf" data-i="${i}" x="${x0(i)}" width="${col}" y="${CY}" height="0"/>`);
+  if (B.bind) { const h = HM * B.cap / m.max; [[CY - dh, dh - h], [CY + h, dh - h]].forEach(([y, hh]) => s += `<rect data-k="hatch" x="${x0(B.bn)}" y="${y}" width="${col}" height="${hh}" fill="url(#hatch)"/>`); }
+  s += `<g data-k="stream"><rect id="stream" class="stream" x="0" width="${W}" y="${CY}" height="0"/><line id="march" class="march" x1="0" x2="${W}" y1="${CY}" y2="${CY}"/></g>`;
+  m.steps.forEach((st, i) => s += `<rect class="bo draw" data-k="boxes" data-i="${i}" pathLength="1" style="transition-delay:${i * .22}s,0s,0s,0s" x="${x0(i)}" width="${col}" y="${CY}" height="0"/>`);
+  s += `<line id="d1" class="dline" data-k="demand" x1="4" x2="${W - 4}" y1="${CY - dh}" y2="${CY - dh}"/><line id="d2" class="dline" data-k="demand" x1="4" x2="${W - 4}" y1="${CY + dh}" y2="${CY + dh}"/>`;
+
+  /* units in process */
+  const total = Math.min(30, Math.max(1, Math.round(m.I0))), shares = m.steps.map(st => total * st.t / m.T), cnt = shares.map(Math.floor);
+  shares.map((v, i) => [v - cnt[i], i]).sort((a, b) => b[0] - a[0]).slice(0, total - cnt.reduce((a, b) => a + b, 0)).forEach(([, i]) => cnt[i]++);
+  const ts = Math.max(6, Math.min(15, 2 * HM * B.R / m.max - 8, col / (Math.max(...cnt) + 1) - 3));
+  let k = 0; s += `<g data-k="tok">`;
+  cnt.forEach((c, i) => { for (let j = 0; j < c; j++) s += `<rect class="tok pop" style="transition-delay:${(k++) * .09}s" x="${x0(i) + col * (j + 1) / (c + 1) - ts / 2}" y="${CY - ts / 2}" width="${ts}" height="${ts}" rx="2"/>`; });
+  s += `</g>`;
+
+  /* queue in front of the bottleneck */
+  if (B.bind) {
+    const q = Math.min(6, Math.max(1, Math.round(B.lost))), base = CY - dh - 16; s += `<g data-k="queue">`;
+    for (let j = 0; j < q; j++) s += `<rect class="qtok pop" style="transition-delay:${.5 + j * .28}s" x="${x0(B.bn) + 8 + (j % 2) * 14}" y="${base - Math.floor(j / 2) * 14}" width="11" height="11" rx="1.5"/>`;
+    s += tx(x0(B.bn) + 8, base - Math.floor((q - 1) / 2) * 14 - 6, `+${fmt(B.lost)}/h waiting`, "mono navy", fs.note) + `</g>`;
+    s += tag(xc(B.bn), Math.min(CY + dh + 8, 342), "BOTTLENECK", "bntag");
+  }
+  if (m.after.bind) s += tag(xc(m.after.bn), Math.min(CY + dh + 8, 342), "BOTTLENECK", "bntag2");
+
+  /* the tempting alternative */
+  if (m.altLine) {
+    const i = m.alt.step - 1, AL = m.altLine, h = HM * AL.steps[i].cap / m.max;
+    s += `<g data-k="ghost"><rect class="ghost" x="${x0(i) + 3}" y="${CY - h}" width="${col - 6}" height="${2 * h}"/>` +
+      tx(xc(i), CY - h - 19, `if added: ${fmt(AL.steps[i].cap)}/h here`, "mono dim", fs.note, "middle") +
+      tx(xc(i), CY - h - 6, AL.R > B.R + 1e-9 ? `output: ${fmt(AL.R)}/h` : `output: still ${fmt(B.R)}/h`, "mono", fs.note, "middle", 'font-weight="600"') + `</g>`;
+  }
+
+  /* travelling flow unit */
+  s += `<g data-k="unit" class="unit"><rect x="${mx - 11}" y="${CY - 11}" width="22" height="22" rx="3" fill="#123A7C"/>${tx(mx, CY - 20, "1 " + esc(m.unit), "mono navy", fs.sub, "middle", 'font-weight="600"')}</g>`;
+  const se = (x, anchor, head, body) => `<g data-k="ends">${tx(x, CY + 66, head, "eyebrow dim", fs.tag, anchor)}${wrap(body, narrow ? 22 : 34).map((l, j) => tx(x, CY + 84 + j * (fs.sub + 4), esc(l), "", fs.sub + 1, anchor)).join("")}</g>`;
+  s += se(mx, "start", "START", m.start || "Work arrives") + se(W - mx, "end", "END", m.end || "Work leaves");
+
+  /* labels */
+  const maxc = Math.floor((col - 8) / (fs.nm * .56));
+  m.steps.forEach((st, i) => {
+    const ln = wrap(st.name || "Step " + (i + 1), maxc);
+    s += `<g data-k="names">${ln.map((l, j) => tx(xc(i), (ln.length > 1 ? 20 : 30) + j * (fs.nm + 2), esc(l), "nm", fs.nm, "middle")).join("")}</g>`;
+    s += tx(xc(i), 62, "", "dim", fs.sub, "middle", `data-k="res" data-i="${i}"`);
+    s += tx(xc(i), 367, "", "num", fs.num, "middle", `data-k="caps" data-i="${i}"`);
+    s += tx(xc(i), 387, "", "dim", fs.sub, "middle", `data-k="util" data-i="${i}"`);
+    s += tx(xc(i), 206, fmt(B.steps[i].cap) + "/h", "num" + (B.bind && i === B.bn ? " bn" : ""), fs.num * .82, "middle", 'data-k="cmp"');
+    s += tx(xc(i), 394, fmt(m.after.steps[i].cap) + "/h", "num" + (m.after.bind && i === m.after.bn ? " bn" : ""), fs.num * .82, "middle", 'data-k="cmp"');
+  });
+  const right = n > 1 && ((B.bind && B.bn === 0) || (m.altLine && m.alt.step === 1)), li = right ? n - 1 : 0, dlx = right ? W - mx : mx, dla = right ? "end" : "start";
+  const ltop = Math.max(dh, HM * B.steps[li].cap / m.max, HM * m.after.steps[li].cap / m.max, m.altLine && m.alt.step - 1 === li ? HM * m.altLine.steps[li].cap / m.max + 28 : 0);
+  s += tx(dlx, CY - ltop - 7, `demand ${fmt(m.demand)} ${esc(m.units)}/h`, "mono navy", fs.note, dla, 'data-k="dlabel" font-weight="600"');
+  if (!m.after.bind) { const t = `DEMAND IS NOW THE LIMIT · ${fmt(m.demand)}/H`, w = t.length * fs.tag * .68 + 14; s += tag(dla === "end" ? W - mx - w / 2 : mx + w / 2, CY - Math.max(ltop, ...m.after.steps.map(st => HM * st.cap / m.max)) - fs.tag - 15, t, "limtag", "lim"); }
+
+  /* time ruler */
+  s += `<g data-k="ruler"><line x1="${mx}" x2="${W - mx}" y1="414" y2="414" stroke="#131C26" stroke-width="1.2"/>`;
+  for (let i = 0; i <= n; i++) s += `<line x1="${x0(i)}" x2="${x0(i)}" y1="409" y2="419" stroke="#131C26" stroke-width="1.2"/>`;
+  m.steps.forEach((st, i) => s += tx(xc(i), 433, fmt(st.t) + " min", "mono", fs.sub, "middle"));
+  s += tx(mx, 453, `T = ${fmt(m.T)} min with no waiting`, "mono navy", fs.note, "start", 'font-weight="600"') + `</g>`;
+
+  /* row titles for the last beat */
+  const lim = L => L.bind ? `<tspan class="coral" font-weight="600">${esc(L.steps[L.bn].name)}, ${fmt(L.cap)}/h</tspan>` : `<tspan class="navy" font-weight="600">demand, ${fmt(m.demand)}/h</tspan>`;
+  s += `<g data-k="cmp">${tx(mx, 78, `<tspan class="eyebrow dim" font-size="${fs.tag}">BEFORE </tspan> limit: ${lim(B)}`, "", fs.sub + 1.5)}${tx(mx, 262, `<tspan class="eyebrow dim" font-size="${fs.tag}">AFTER </tspan> limit: ${lim(m.after)}`, "", fs.sub + 1.5)}</g>`;
+
+  svg.innerHTML = s;
+  const all = q => [...svg.querySelectorAll(q)];
+  E = { keyed: all("[data-k]"), bf: all(".bf[data-i]"), bo: all(".bo[data-i]"), res: all('[data-k="res"]'), caps: all('[data-k="caps"]'), util: all('[data-k="util"]'),
+        stream: $("stream"), march: $("march"), band: $("band"), d1: $("d1"), d2: $("d2") };
+}
+function tw(el, to, instant) {
+  cancelAnimationFrame(el._raf);
+  const from = { ...(el._g || to) };
+  if (instant || RM || !el._g) { for (const a in to) el.setAttribute(a, to[a]); el._g = { ...to }; return; }
+  const t0 = performance.now(), D = 950;
+  (function step(now) {
+    const p = Math.min(1, Math.max(0, (now - t0) / D)), e = p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2, cur = {};
+    for (const a in to) { cur[a] = from[a] + (to[a] - from[a]) * e; el.setAttribute(a, cur[a]); }
+    el._g = cur;
+    if (p < 1) el._raf = requestAnimationFrame(step);
+  })(t0);
+}
+function draw(instant) {
+  const m = model, b = beat, after = b > 7 || (b === 7 && phase === 2), L = after ? m.after : m.before;
+  const cy = b === 8 ? CYA : CY, hm = b === 8 ? HK : HM;
+  m.steps.forEach((st, i) => {
+    const h = 2 * hm * (b <= 2 ? UNI : L.steps[i].cap / m.max), g = { y: cy - h / 2, height: h }, hot = b >= 4 && L.bind && i === L.bn;
+    tw(E.bf[i], g, instant); tw(E.bo[i], g, instant);
+    E.bf[i].classList.toggle("cap", b >= 3 && !hot); E.bf[i].classList.toggle("bn", hot); E.bo[i].classList.toggle("bn", hot);
+    E.res[i].textContent = `${fmt(L.steps[i].n)} ${plural(st.res || "resource", L.steps[i].n)} · ${fmt(st.t)} min`;
+    E.caps[i].textContent = fmt(L.steps[i].cap) + "/h"; E.caps[i].classList.toggle("bn", hot);
+    E.util[i].textContent = pct(L.R / L.steps[i].cap) + " busy";
+  });
+  const sh = b >= 5 ? 2 * hm * L.R / m.max : 0, dh = hm * m.demand / m.max;
+  tw(E.stream, { y: cy - sh / 2, height: sh }, instant); tw(E.march, { y1: cy, y2: cy }, instant);
+  tw(E.band, { y: cy - dh, height: 2 * dh }, instant);
+  tw(E.d1, { y1: cy - dh, y2: cy - dh }, instant); tw(E.d2, { y1: cy + dh, y2: cy + dh }, instant);
+  const pre = b >= 4 && b <= 7 && !after;
+  const on = {
+    line: b <= 4, unit: b === 1, ends: b <= 2, boxes: b >= 2, names: b >= 2, res: b >= 2 && b <= 7, caps: b >= 3 && b <= 7, util: b >= 5 && b <= 7,
+    demand: b >= 4, dlabel: b >= 4 && b <= 7 && !(after && !m.after.bind), stream: b >= 5, hatch: pre, queue: pre, bntag: pre,
+    bntag2: b === 7 && after, limtag: b === 7 && after, tok: b === 6, ruler: b === 6, ghost: b === 7, cmp: b === 8
+  };
+  E.keyed.forEach(el => el.classList.toggle("on", !!on[el.dataset.k]));
+}
+
+/* ---------- playback ---------- */
+function show(b, instant) {
+  beat = Math.min(8, Math.max(1, b)); elapsed = 0; clearTimeout(phaseTimer);
+  phase = beat === 7 && !instant && !RM ? 1 : 2;
+  if (phase === 1) phaseTimer = setTimeout(() => { phase = 2; draw(); }, model.altLine ? 4200 : 900);
+  draw(instant);
+  $("beatno").innerHTML = `0${beat}<i>/08</i>`; $("beattitle").textContent = BEATS[beat - 1].k;
+  for (const [id, html] of [["caption", caption(beat)], ["maths", maths(beat)]]) { const el = $(id); el.innerHTML = html; el.classList.remove("swap"); void el.offsetWidth; el.classList.add("swap"); }
+  [...$("rail").children].forEach((r, i) => { r.classList.toggle("done", i < beat - 1); r.setAttribute("aria-current", i === beat - 1); r.firstChild.style.transform = ""; });
+  $("prev").disabled = beat === 1; $("next").disabled = beat === 8;
+  setPlayLabel();
+}
+function setPlayLabel() { $("play").textContent = playing ? "Pause" : beat === 8 ? "Replay" : "Play"; }
+function setPlaying(p) { playing = p && !!model; lastTick = performance.now(); setPlayLabel(); if (playing) requestAnimationFrame(tick); }
+function tick(now) {
+  if (!playing) return;
+  elapsed += Math.min(120, now - lastTick); lastTick = now;
+  const d = BEATS[beat - 1].d;
+  $("rail").children[beat - 1].firstChild.style.transform = `scaleX(${Math.min(1, elapsed / d)})`;
+  if (elapsed >= d) { if (beat === 8) { $("rail").children[7].classList.add("done"); return setPlaying(false); } show(beat + 1); }
+  requestAnimationFrame(tick);
+}
+function jump(b) { setPlaying(false); show(b); }
+
+/* ---------- brief form ---------- */
+const num = v => v === "" ? NaN : Number(v);
+function stepRow(s) {
+  const d = document.createElement("div"); d.className = "srow";
+  d.innerHTML = `<input data-f="name" aria-label="Step name" placeholder="Step" value="${esc(s.name)}"><input data-f="res" aria-label="Resource" placeholder="e.g. agent" value="${esc(s.res)}"><input data-f="n" aria-label="How many" type="number" min="0" step="any" inputmode="decimal" value="${esc(s.n)}"><input data-f="t" aria-label="Minutes each" type="number" min="0" step="any" inputmode="decimal" value="${esc(s.t)}"><button class="rm" type="button" aria-label="Remove this step">×</button>`;
+  return d;
+}
+function stepOptions() {
+  const names = [...$("steps").children].map((r, i) => `${i + 1} · ${r.querySelector('[data-f="name"]').value || "Step " + (i + 1)}`);
+  for (const [id, none] of [["f-fixstep", false], ["f-altstep", true]]) {
+    const el = $(id), v = Math.min(Number(el.value) || (none ? 0 : 1), names.length);
+    el.innerHTML = (none ? `<option value="0">None</option>` : "") + names.map((t, i) => `<option value="${i + 1}">${esc(t)}</option>`).join("");
+    el.value = v;
+  }
+}
+function fill(b) {
+  const set = (id, v) => $(id).value = v ?? "";
+  set("f-name", b.name); set("f-place", b.place); set("f-unit", b.unit); set("f-units", b.units); set("f-start", b.start); set("f-end", b.end); set("f-demand", b.demand);
+  $("steps").replaceChildren(...b.steps.map(stepRow));
+  $("f-fixstep").innerHTML = `<option>${b.fix.step}</option>`; $("f-altstep").innerHTML = `<option>${b.alt.step}</option>`;
+  $("f-fixstep").value = b.fix.step; $("f-altstep").value = b.alt.step; stepOptions();
+  set("f-fixlabel", b.fix.label); set("f-fixn", b.fix.n); set("f-altlabel", b.alt.label); set("f-altn", b.alt.n);
+  set("f-cur", b.money.cur); set("f-margin", b.money.margin); set("f-hours", b.money.hours); set("f-cost", b.money.cost);
+}
+function read() {
+  const v = id => $(id).value.trim();
+  return {
+    name: v("f-name"), place: v("f-place"), unit: v("f-unit") || "unit", units: v("f-units") || plural(v("f-unit") || "unit", 2), start: v("f-start"), end: v("f-end"), demand: num(v("f-demand")),
+    steps: [...$("steps").children].map(r => { const g = f => r.querySelector(`[data-f="${f}"]`).value.trim(); return { name: g("name"), res: g("res"), n: num(g("n")), t: num(g("t")) }; }),
+    fix: { label: v("f-fixlabel"), step: Number(v("f-fixstep")) || 1, n: num(v("f-fixn")) },
+    alt: { label: v("f-altlabel"), step: Number(v("f-altstep")) || 0, n: num(v("f-altn")) },
+    money: { cur: v("f-cur"), margin: num(v("f-margin")), hours: num(v("f-hours")), cost: num(v("f-cost")) }
+  };
+}
+function recompute(keepPlaying) {
+  const b = read(), st = $("status");
+  try { localStorage.setItem(STORE, JSON.stringify(b)); } catch (e) {}
+  try { model = compute(b); } catch (msg) { if (typeof msg !== "string") throw msg; st.textContent = msg; st.className = "status err"; setPlaying(false); return; }
+  st.className = "status";
+  st.textContent = model.before.bind ? `Bottleneck: ${model.steps[model.before.bn].name}, ${fmt(model.before.cap)}/h against demand of ${fmt(model.demand)}/h.` : `No bottleneck below demand. Capacity is ${fmt(model.before.cap)}/h.`;
+  $("pname").textContent = b.name || "Untitled process"; $("pplace").textContent = b.place ? " " + b.place : "";
+  build(); if (!keepPlaying) setPlaying(false); show(beat, true);
+}
+
+/* ---------- wiring ---------- */
+function fitMark() {
+  const el = $("mark"); el.style.fontSize = "100px";
+  const w = [...el.children].reduce((a, c) => a + c.getBoundingClientRect().width, 0);
+  if (w > 0) el.style.fontSize = (100 * el.parentNode.clientWidth / w * .995) + "px";
+}
+$("rail").innerHTML = BEATS.map((b, i) => `<button type="button" aria-label="Beat ${i + 1}: ${b.k}"><i></i>0${i + 1}<span>${b.k}</span></button>`).join("");
+[...$("rail").children].forEach((r, i) => r.addEventListener("click", () => jump(i + 1)));
+$("prev").addEventListener("click", () => jump(beat - 1));
+$("next").addEventListener("click", () => jump(beat + 1));
+$("play").addEventListener("click", () => { if (playing) return setPlaying(false); if (beat === 8) show(1); setPlaying(true); });
+let deb = 0;
+document.querySelector(".brief").addEventListener("input", e => { if (e.target.dataset.f === "name") stepOptions(); clearTimeout(deb); deb = setTimeout(recompute, 220); });
+$("steps").addEventListener("click", e => { if (!e.target.classList.contains("rm") || $("steps").children.length < 2) return; e.target.parentNode.remove(); stepOptions(); recompute(); });
+$("addstep").addEventListener("click", () => { if ($("steps").children.length >= 6) return; $("steps").append(stepRow({ name: "", res: "", n: "", t: "" })); stepOptions(); $("steps").lastChild.firstChild.focus(); });
+$("loaddemo").addEventListener("click", () => { fill(KITCHEN); beat = 1; recompute(); setPlaying(true); });
+$("blank").addEventListener("click", () => { fill(BLANK); beat = 1; recompute(); $("f-name").focus(); });
+document.addEventListener("keydown", e => {
+  if (/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "ArrowRight") jump(beat + 1); else if (e.key === "ArrowLeft") jump(beat - 1);
+  else if (e.key === " ") { e.preventDefault(); $("play").click(); }
+  else if (/^[1-8]$/.test(e.key)) jump(Number(e.key));
+});
+let rz = 0;
+addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { fitMark(); if (model && ($("stage").parentNode.clientWidth < 640) !== narrow) { build(); draw(true); } }, 120); });
+document.addEventListener("visibilitychange", () => { lastTick = performance.now(); });
+
+let saved = null;
+try { saved = JSON.parse(localStorage.getItem(STORE)); } catch (e) {}
+fill(saved && Array.isArray(saved.steps) && saved.fix && saved.alt && saved.money ? saved : KITCHEN);
+fitMark(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMark);
+const start = Number((location.hash.match(/[1-8]/) || [])[0]);
+if (start) beat = start;
+recompute();
+if (!start && !RM) setPlaying(true);
+</script>
+</body>
+</html>
